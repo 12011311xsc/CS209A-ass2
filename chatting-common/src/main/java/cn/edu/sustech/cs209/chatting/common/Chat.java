@@ -14,6 +14,8 @@ public class Chat implements Serializable {
 
     private int id;
 
+    private String displayName;
+
     public boolean isPrivate() {
         return isPrivate;
     }
@@ -46,9 +48,16 @@ public class Chat implements Serializable {
         this.id = id;
     }
 
-    public Chat(boolean isPrivate, int id, List<String> userList){
+    public String getDisplayName() {
+        return displayName;
+    }
+
+    public void setDisplayName(String displayName) {
+        this.displayName = displayName;
+    }
+
+    public Chat(boolean isPrivate, List<String> userList){
         this.isPrivate = isPrivate;
-        this.id = id;
         this.userList = userList;
         this.messageDeque = new ConcurrentLinkedDeque<>();
     }

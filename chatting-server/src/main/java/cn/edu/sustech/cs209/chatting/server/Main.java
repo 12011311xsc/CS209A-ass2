@@ -9,6 +9,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
+import java.net.SocketException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -78,15 +79,48 @@ public class Main {
                             response.getRelatedUsers().add(value);
                         }
                     });
-                    try {
-                        clientOutputs.get(sendFrom).writeObject(response);
-                        System.out.println("send initial information to "+sendFrom);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
                     // TODO:send chat information
+                    chatList.forEach((key,value) -> {
+                        if(value.getUserList().contains(sendFrom)){
+                            response.getRelatedChats().add(value);
+                        }
+                    });
                     break;
-
+                case 4:
+                    response.setRid(4);
+                    int id = chatList.size();
+                    Chat chat = communication.getRelatedChats().get(0);
+                    chat.setId(id);
+                    chatList.put(id,chat);
+                    response.getRelatedChats().add(chat);
+                    clientOutputs.forEach((key, value) -> {
+                        if(chat.getUserList().contains(key) && !Objects.equals(key, sendFrom)){
+                            try {
+                                value.writeObject(response);
+                                System.out.println("send chat to "+key);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+                    break;
+                case 5:
+                    response.setRid(5);
+                    response.setSendFrom(sendFrom);
+                    Chat chat2 = communication.getRelatedChats().get(0);
+                    int id2 = chat2.getId();
+                    chatList.put(id2,chat2);
+                    response.getRelatedChats().add(chat2);
+                    clientOutputs.forEach((key, value) -> {
+                        if(chat2.getUserList().contains(key) && !Objects.equals(key, sendFrom)){
+                            try {
+                                value.writeObject(response);
+                                System.out.println("send message to "+key);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    });
             }
             return response;
         }
@@ -128,7 +162,7 @@ public class Main {
                         ObjectOutputStream targetOutput = server.clientOutputs.get(sendFrom);
                         targetOutput.writeObject(response);
                     }
-                } catch (Exception e) {
+                } catch (ClassNotFoundException | IOException e) {
                     e.printStackTrace();
                 } finally {
                     try {

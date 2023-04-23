@@ -20,10 +20,7 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.URL;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
-import java.util.ResourceBundle;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -57,6 +54,8 @@ public class Controller implements Initializable {
     private ControllerThread controllerThread;
 
     private Map<String, User> onlineUsers;
+
+    private Chat currentChat;
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
 
@@ -74,6 +73,15 @@ public class Controller implements Initializable {
             String username = in.get();
             user = new User(username);
             chatList.setCellFactory(userListView -> new ChatListCell());
+            chatContentList.setCellFactory(new MessageCellFactory());
+            chatList.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
+                        currentChat = newValue;
+                        chatContentList.getItems().clear();
+                        for (Message message : currentChat.getMessageDeque()) {
+                            chatContentList.getItems().add(message);
+                        }
+                    });
+            onlineUsers = new ConcurrentHashMap<>();
             userAddress = "localhost";
             try {
                 socket = new Socket(userAddress,9999);
@@ -93,8 +101,6 @@ public class Controller implements Initializable {
             Platform.exit();
         }
 
-        chatContentList.setCellFactory(new MessageCellFactory());
-        onlineUsers = new ConcurrentHashMap<>();
 
     }
 
@@ -124,7 +130,38 @@ public class Controller implements Initializable {
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
 
+        if(chatExist(temUser.get()).getUserList().size() > 0){
+            currentChat = chatExist(temUser.get());
+            chatList.getSelectionModel().select(currentChat);
+            chatContentList.getItems().clear();
+            for (Message message : currentChat.getMessageDeque()) {
+                chatContentList.getItems().add(message);
+            }
+        }
+        else {
+            ArrayList<String> userArrayList = new ArrayList<>();
+            userArrayList.add(user.getUsername());
+            userArrayList.add(temUser.get());
+            Chat chat = new Chat(true,userArrayList);
+            Communication communication = new Communication(4,user.getUsername());
+            communication.getRelatedChats().add(chat);
+            try{
+                output.writeObject(communication);
+            }catch (IOException e){
+                System.out.println("don't create chat");
+            }
+        }
+
 //        chatList.getItems().add()
+    }
+
+    private Chat chatExist(String userName) {
+        for(Chat chat:chatList.getItems()){
+            if(chat.isPrivate() && chat.getUserList().contains(userName)){
+                return chat;
+            }
+        }
+        return new Chat(true,new ArrayList<>());
     }
 
     /**
@@ -139,6 +176,16 @@ public class Controller implements Initializable {
      */
     @FXML
     public void createGroupChat() {
+        AtomicReference<ArrayList<String>> temUserList = new AtomicReference<>();
+        temUserList.set(new ArrayList<>());
+
+        Stage stage = new Stage();
+        ArrayList<CheckBox> checkBoxes = new ArrayList<>();
+        onlineUsers.forEach((key, value) -> {
+            CheckBox temCheckBox = new CheckBox(key);
+        });
+
+
     }
 
     /**
@@ -150,7 +197,20 @@ public class Controller implements Initializable {
     @FXML
     public void doSendMessage() {
         // TODO
-        chatContentList.getItems().add(new Message(System.currentTimeMillis()+28800000,"","",inputArea.getText()));
+        Message message = new Message(System.currentTimeMillis()+28800000,user.getUsername(),"",inputArea.getText());
+        currentChat.getMessageDeque().addLast(message);
+        chatContentList.getItems().clear();
+        for (Message message1 : currentChat.getMessageDeque()) {
+            chatContentList.getItems().add(message1);
+        }
+        Communication communication = new Communication(5,user.getUsername());
+        communication.getRelatedChats().add(currentChat);
+        try{
+            output.writeObject(communication);
+        }catch (IOException e){
+            System.out.println("don't send message");
+        }
+//        chatContentList.getItems().add(new Message(System.currentTimeMillis()+28800000,"","",inputArea.getText()));
         inputArea.setText("");
     }
 
@@ -186,9 +246,47 @@ public class Controller implements Initializable {
                     onlineUsers.put(user1.getUsername(),user1);
                 }
                 Platform.runLater(() -> {
+                    for (Chat chat: communication.getRelatedChats()){
+                        chatList.getItems().add(chat);
+                    }
                     currentOnlineCnt.setText("Online: "+(onlineUsers.size()+1));
                 });
                 //TODO:get chat information
+
+                break;
+            case 4:
+                Chat chat = communication.getRelatedChats().get(0);
+                if(chat.isPrivate()){
+                    if(!Objects.equals(chat.getUserList().get(0), user.getUsername())){
+                        chat.setDisplayName(chat.getUserList().get(0));
+                    }
+                    else {
+                        chat.setDisplayName(chat.getUserList().get(1));
+                    }
+                }
+                chatList.getItems().add(chat);
+                break;
+            case 5:
+                if(!Objects.equals(communication.getSendFrom(), user.getUsername())){
+                    Chat chat2 = communication.getRelatedChats().get(0);
+                    if(chat2.isPrivate()){
+                        if(!Objects.equals(chat2.getUserList().get(0), user.getUsername())){
+                            chat2.setDisplayName(chat2.getUserList().get(0));
+                        }
+                        else {
+                            chat2.setDisplayName(chat2.getUserList().get(1));
+                        }
+                    }
+                    for (Chat temChat : chatList.getItems()){
+                        if(chat2.getId() == temChat.getId()){
+                            Platform.runLater(() -> {
+                                chatList.getItems().remove(temChat);
+                                chatList.getItems().add(chat2);
+                            });
+
+                        }
+                    }
+                }
                 break;
         }
     }
@@ -244,7 +342,7 @@ public class Controller implements Initializable {
                 setText(null);
                 setGraphic(null);
             } else {
-                setText("");
+                setText(chat.getDisplayName());
             }
         }
     }
