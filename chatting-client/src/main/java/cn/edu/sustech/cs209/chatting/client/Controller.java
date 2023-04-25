@@ -73,7 +73,8 @@ public class Controller implements Initializable {
         Optional<String> in = dialog.showAndWait();
         if (in.isPresent() && !in.get().isEmpty()) {
             /*
-               TODO: Check if there is a user with the same name among the currently logged-in users,
+               TODO: Check if there is a user with the same name
+                        among the currently logged-in users,
                      if so, ask the user to change the username
              */
             String username = in.get();
@@ -82,8 +83,9 @@ public class Controller implements Initializable {
             user.setOnline(true);
             chatList.setCellFactory(userListView -> new ChatListCell());
             chatContentList.setCellFactory(new MessageCellFactory());
-            chatList.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
-                if(newValue != null){
+            chatList.getSelectionModel().selectedItemProperty().addListener(
+                    (observable, oldValue, newValue) -> {
+                if (newValue != null){
                     currentChat = newValue;
                     updateTitle();
                     chatContentList.getItems().clear();
@@ -100,10 +102,10 @@ public class Controller implements Initializable {
             onlineUsers = new ConcurrentHashMap<>();
             userAddress = "localhost";
             try {
-                socket = new Socket(userAddress,9999);
+                socket = new Socket(userAddress, 9999);
                 output = new ObjectOutputStream(socket.getOutputStream());
                 input = new ObjectInputStream(socket.getInputStream());
-                Communication communication = new Communication(1,username);
+                Communication communication = new Communication(1, username);
                 output.writeObject(communication);
                 controllerThread = new ControllerThread(socket, this, output, input);
                 controllerThread.start();
@@ -149,7 +151,7 @@ public class Controller implements Initializable {
 
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
-        if(temUser.get() == null){
+        if (temUser.get() == null){
             Alert alert = new Alert(Alert.AlertType.INFORMATION);
             alert.setTitle("No user is chose");
             alert.setHeaderText(null);
@@ -157,7 +159,7 @@ public class Controller implements Initializable {
 
             alert.showAndWait();
         }
-        else if(chatExist(temUser.get()).getUserList().size() > 0){
+        else if (chatExist(temUser.get()).getUserList().size() > 0){
             currentChat = chatExist(temUser.get());
             updateTitle();
             chatList.getSelectionModel().select(currentChat);
@@ -170,11 +172,11 @@ public class Controller implements Initializable {
             ArrayList<String> userArrayList = new ArrayList<>();
             userArrayList.add(user.getUsername());
             userArrayList.add(temUser.get());
-            Chat chat = new Chat(true,userArrayList);
+            Chat chat = new Chat(true, userArrayList);
             chat.setHasRead(true);
-            Communication communication = new Communication(4,user.getUsername());
+            Communication communication = new Communication(4, user.getUsername());
             communication.getRelatedChats().add(chat);
-            try{
+            try {
                 output.writeObject(communication);
             }catch (IOException e){
                 System.out.println("don't create chat");
@@ -185,7 +187,7 @@ public class Controller implements Initializable {
     }
 
     private Chat chatExist(String userName) {
-        for(Chat chat:chatList.getItems()){
+        for (Chat chat:chatList.getItems()){
             if(chat.isPrivate() && chat.getUserList().contains(userName)){
                 return chat;
             }
