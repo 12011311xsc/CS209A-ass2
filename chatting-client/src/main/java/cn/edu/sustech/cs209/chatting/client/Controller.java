@@ -309,7 +309,23 @@ public class Controller implements Initializable {
             case 1:
                 if(communication.getRelatedUsers().size() == 0){
                     //TODO:
-                    System.out.println("The user is online.");
+                    Platform.runLater(() -> {
+                        Alert alert = new Alert(Alert.AlertType.INFORMATION);
+                        alert.setTitle("Online user");
+                        alert.setHeaderText(null);
+                        alert.setContentText("The user is online. You can't login now.");
+
+                        alert.showAndWait();
+                        Platform.exit();
+                    });
+                    try {
+                        input.close();
+                        output.close();
+                        socket.close();
+                        isOnline = false;
+                    }catch (IOException e){
+                        System.out.println("close user thread failed.");
+                    }
                 }
                 else if(Objects.equals(communication.getRelatedUsers().get(0).getUsername(), user.getUsername())){
                     System.out.println("Login succeed.");
@@ -438,13 +454,23 @@ public class Controller implements Initializable {
 
     private void updateTitle(){
         if(currentChat != null){
-            Collections.sort(currentChat.getUserList());
-            StringBuilder displayName = new StringBuilder();
-            for (int i = 0;i < currentChat.getUserList().size();i++){
-                displayName.append(currentChat.getUserList().get(i)).append(", ");
+            if(currentChat.isPrivate()){
+                if(!Objects.equals(currentChat.getUserList().get(0), user.getUsername())){
+                    displayWholeName.setText(currentChat.getUserList().get(0));
+                }
+                else {
+                    displayWholeName.setText(currentChat.getUserList().get(1));
+                }
             }
-            displayName.delete(displayName.length()-2,displayName.length());
-            displayWholeName.setText(displayName.toString());
+            else {
+                Collections.sort(currentChat.getUserList());
+                StringBuilder displayName = new StringBuilder();
+                for (int i = 0;i < currentChat.getUserList().size();i++){
+                    displayName.append(currentChat.getUserList().get(i)).append(", ");
+                }
+                displayName.delete(displayName.length()-2,displayName.length());
+                displayWholeName.setText(displayName.toString());
+            }
         }
         else {
             displayWholeName.setText("");

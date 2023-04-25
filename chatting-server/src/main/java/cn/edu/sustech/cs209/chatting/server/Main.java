@@ -4,13 +4,11 @@ import cn.edu.sustech.cs209.chatting.common.Chat;
 import cn.edu.sustech.cs209.chatting.common.Communication;
 import cn.edu.sustech.cs209.chatting.common.User;
 
-import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.ServerSocket;
 import java.net.Socket;
-import java.net.SocketException;
 import java.util.Map;
 import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
@@ -173,10 +171,14 @@ public class Main {
 
                     Communication iniCommunication = (Communication) input.readObject();
                     String sendFrom = iniCommunication.getSendFrom();
-                    server.clientOutputs.put(sendFrom, output);
+
 
                     Communication iniResponse = server.handleCommunication(iniCommunication);
                     output.writeObject(iniResponse);
+                    if(iniResponse.getRid() == 1 && iniResponse.getRelatedUsers().size() == 0){
+                        return;
+                    }
+                    server.clientOutputs.put(sendFrom, output);
 
                     while (true) {
                         Communication communication = (Communication) input.readObject();
