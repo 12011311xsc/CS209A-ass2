@@ -17,6 +17,8 @@ public class Main extends Application {
     public void start(Stage stage) throws IOException {
         FXMLLoader fxmlLoader = new FXMLLoader(getClass().getResource("main.fxml"));
         stage.setScene(new Scene(fxmlLoader.load()));
+        Controller controller = fxmlLoader.getController();
+        controller.setStage(stage);
         stage.setTitle("Chatting Client");
         stage.show();
     }

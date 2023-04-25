@@ -10,7 +10,6 @@ public class Communication implements Serializable {
     private String sendFrom;
 
 
-
     private ArrayList<User> relatedUsers;
 
     private ArrayList<Chat> relatedChats;

@@ -13,6 +13,7 @@ import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
 import javafx.stage.Stage;
+import javafx.stage.WindowEvent;
 import javafx.util.Callback;
 
 import java.io.IOException;
@@ -41,6 +42,9 @@ public class Controller implements Initializable {
     @FXML
     ListView<Message> chatContentList;
 
+    @FXML
+    private Label displayWholeName;
+
     User user;
 
     private Socket socket;
@@ -55,7 +59,9 @@ public class Controller implements Initializable {
 
     private Map<String, User> onlineUsers;
 
-    private Chat currentChat;
+    private Chat currentChat = null;
+
+    private boolean isOnline;
     @Override
     public void initialize(URL url, ResourceBundle resourceBundle) {
 
@@ -71,16 +77,26 @@ public class Controller implements Initializable {
                      if so, ask the user to change the username
              */
             String username = in.get();
+            isOnline = true;
             user = new User(username);
+            user.setOnline(true);
             chatList.setCellFactory(userListView -> new ChatListCell());
             chatContentList.setCellFactory(new MessageCellFactory());
             chatList.getSelectionModel().selectedItemProperty().addListener((observable, oldValue, newValue) -> {
-                        currentChat = newValue;
-                        chatContentList.getItems().clear();
-                        for (Message message : currentChat.getMessageDeque()) {
-                            chatContentList.getItems().add(message);
-                        }
-                    });
+                if(newValue != null){
+                    currentChat = newValue;
+                    updateTitle();
+                    chatContentList.getItems().clear();
+                    for (Message message : currentChat.getMessageDeque()) {
+                        chatContentList.getItems().add(message);
+                    }
+                }
+                else {
+                    currentChat = null;
+                    updateTitle();
+                    chatContentList.getItems().clear();
+                }
+            });
             onlineUsers = new ConcurrentHashMap<>();
             userAddress = "localhost";
             try {
@@ -89,19 +105,23 @@ public class Controller implements Initializable {
                 input = new ObjectInputStream(socket.getInputStream());
                 Communication communication = new Communication(1,username);
                 output.writeObject(communication);
-                controllerThread = new ControllerThread(socket,this,output,input);
+                controllerThread = new ControllerThread(socket, this, output, input);
                 controllerThread.start();
             } catch (IOException e) {
                 System.out.println("The server is closed. Quit now.");
                 Platform.exit();
             }
             currentUsername.setText("Current User: "+username);
-        } else {
-            System.out.println("Invalid username " + in + ", exiting");
+        }
+        else {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Empty username");
+            alert.setHeaderText(null);
+            alert.setContentText("The username is empty.");
+
+            alert.showAndWait();
             Platform.exit();
         }
-
-
     }
 
     @FXML
@@ -129,9 +149,17 @@ public class Controller implements Initializable {
 
         // TODO: if the current user already chatted with the selected user, just open the chat with that user
         // TODO: otherwise, create a new chat item in the left panel, the title should be the selected user's name
+        if(temUser.get() == null){
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("No user is chose");
+            alert.setHeaderText(null);
+            alert.setContentText("No user is chose. Please choose one user.");
 
-        if(chatExist(temUser.get()).getUserList().size() > 0){
+            alert.showAndWait();
+        }
+        else if(chatExist(temUser.get()).getUserList().size() > 0){
             currentChat = chatExist(temUser.get());
+            updateTitle();
             chatList.getSelectionModel().select(currentChat);
             chatContentList.getItems().clear();
             for (Message message : currentChat.getMessageDeque()) {
@@ -143,6 +171,7 @@ public class Controller implements Initializable {
             userArrayList.add(user.getUsername());
             userArrayList.add(temUser.get());
             Chat chat = new Chat(true,userArrayList);
+            chat.setHasRead(true);
             Communication communication = new Communication(4,user.getUsername());
             communication.getRelatedChats().add(chat);
             try{
@@ -183,7 +212,48 @@ public class Controller implements Initializable {
         ArrayList<CheckBox> checkBoxes = new ArrayList<>();
         onlineUsers.forEach((key, value) -> {
             CheckBox temCheckBox = new CheckBox(key);
+            checkBoxes.add(temCheckBox);
         });
+        Button okBtn = new Button("OK");
+        okBtn.setOnAction(e -> {
+            checkBoxes.forEach(checkBox -> {
+                if(checkBox.isSelected()){
+                    temUserList.get().add(checkBox.getText());
+                }
+            });
+            stage.close();
+        });
+
+        HBox box = new HBox(10);
+        box.setAlignment(Pos.CENTER);
+        box.setPadding(new Insets(20, 20, 20, 20));
+        box.getChildren().addAll(checkBoxes.toArray(new CheckBox[0]));
+        box.getChildren().add(okBtn);
+        stage.setScene(new Scene(box));
+        stage.showAndWait();
+
+        if(temUserList.get().size() == 0){
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("No user is chose");
+            alert.setHeaderText(null);
+            alert.setContentText("No user is chose. Please choose one user at least.");
+
+            alert.showAndWait();
+        }
+        else {
+            ArrayList<String> userArrayList = new ArrayList<>();
+            userArrayList.add(user.getUsername());
+            userArrayList.addAll(temUserList.get());
+            Chat chat = new Chat(false,userArrayList);
+            chat.setHasRead(true);
+            Communication communication = new Communication(4,user.getUsername());
+            communication.getRelatedChats().add(chat);
+            try{
+                output.writeObject(communication);
+            }catch (IOException e){
+                System.out.println("don't create chat");
+            }
+        }
 
 
     }
@@ -197,21 +267,41 @@ public class Controller implements Initializable {
     @FXML
     public void doSendMessage() {
         // TODO
-        Message message = new Message(System.currentTimeMillis()+28800000,user.getUsername(),"",inputArea.getText());
-        currentChat.getMessageDeque().addLast(message);
-        chatContentList.getItems().clear();
-        for (Message message1 : currentChat.getMessageDeque()) {
-            chatContentList.getItems().add(message1);
+        if(inputArea.getText().length() == 0){
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Send empty message");
+            alert.setHeaderText(null);
+            alert.setContentText("Cannot send empty message");
+
+            alert.showAndWait();
         }
-        Communication communication = new Communication(5,user.getUsername());
-        communication.getRelatedChats().add(currentChat);
-        try{
-            output.writeObject(communication);
-        }catch (IOException e){
-            System.out.println("don't send message");
+        else if(currentChat == null){
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("No chat is chose");
+            alert.setHeaderText(null);
+            alert.setContentText("No chat is chose. Please choose one chat.");
+
+            alert.showAndWait();
         }
+        else{
+            Message message = new Message(System.currentTimeMillis()+28800000,user.getUsername(),"",inputArea.getText());
+            currentChat.getMessageDeque().addLast(message);
+            currentChat.setHasRead(false);
+//            chatContentList.getItems().clear();
+//            for (Message message1 : currentChat.getMessageDeque()) {
+//                chatContentList.getItems().add(message1);
+//            }
+            Communication communication = new Communication(5,user.getUsername());
+            communication.getRelatedChats().add(currentChat);
+            try{
+                output.writeObject(communication);
+            }catch (IOException e){
+                System.out.println("don't send message");
+            }
 //        chatContentList.getItems().add(new Message(System.currentTimeMillis()+28800000,"","",inputArea.getText()));
-        inputArea.setText("");
+            inputArea.setText("");
+        }
+
     }
 
     private void handleCommunication(Communication communication){
@@ -234,12 +324,34 @@ public class Controller implements Initializable {
                 else {
                     onlineUsers.put(communication.getRelatedUsers().get(0).getUsername(),communication.getRelatedUsers().get(0));
                     Platform.runLater(() -> {
-                        currentOnlineCnt.setText("Online: "+(onlineUsers.size()+1));
+                        StringBuilder s = new StringBuilder("Online user: ");
+                        onlineUsers.forEach((key, value) -> s.append(key).append(", "));
+                        s.delete(s.length()-2,s.length());
+                        currentOnlineCnt.setText(s.toString());
                     });
                 }
                 break;
             case 2:
                 //TODO:log out
+                if(Objects.equals(communication.getRelatedUsers().get(0).getUsername(), user.getUsername())){
+                    try {
+                        input.close();
+                        output.close();
+                        socket.close();
+                        isOnline = false;
+                    }catch (IOException e){
+                        System.out.println("close user thread failed.");
+                    }
+                }
+                else {
+                    onlineUsers.remove(communication.getRelatedUsers().get(0).getUsername());
+                    Platform.runLater(() -> {
+                        StringBuilder s = new StringBuilder("Online user: ");
+                        onlineUsers.forEach((key, value) -> s.append(key).append(", "));
+                        s.delete(s.length()-2,s.length());
+                        currentOnlineCnt.setText(s.toString());
+                    });
+                }
                 break;
             case 3:
                 for(User user1: communication.getRelatedUsers()){
@@ -247,48 +359,123 @@ public class Controller implements Initializable {
                 }
                 Platform.runLater(() -> {
                     for (Chat chat: communication.getRelatedChats()){
-                        chatList.getItems().add(chat);
+                        getDisplayName(chat);
+                        chatList.getItems().add(0,chat);
                     }
-                    currentOnlineCnt.setText("Online: "+(onlineUsers.size()+1));
+                    StringBuilder s = new StringBuilder("Online user: ");
+                    onlineUsers.forEach((key, value) -> s.append(key).append(", "));
+                    s.delete(s.length()-2,s.length());
+                    currentOnlineCnt.setText(s.toString());
                 });
-                //TODO:get chat information
-
                 break;
             case 4:
                 Chat chat = communication.getRelatedChats().get(0);
-                if(chat.isPrivate()){
-                    if(!Objects.equals(chat.getUserList().get(0), user.getUsername())){
-                        chat.setDisplayName(chat.getUserList().get(0));
-                    }
-                    else {
-                        chat.setDisplayName(chat.getUserList().get(1));
-                    }
-                }
-                chatList.getItems().add(chat);
+                getDisplayName(chat);
+                chatList.getItems().add(0,chat);
                 break;
             case 5:
-                if(!Objects.equals(communication.getSendFrom(), user.getUsername())){
-                    Chat chat2 = communication.getRelatedChats().get(0);
-                    if(chat2.isPrivate()){
-                        if(!Objects.equals(chat2.getUserList().get(0), user.getUsername())){
-                            chat2.setDisplayName(chat2.getUserList().get(0));
-                        }
-                        else {
-                            chat2.setDisplayName(chat2.getUserList().get(1));
-                        }
-                    }
-                    for (Chat temChat : chatList.getItems()){
-                        if(chat2.getId() == temChat.getId()){
-                            Platform.runLater(() -> {
-                                chatList.getItems().remove(temChat);
-                                chatList.getItems().add(chat2);
-                            });
+                Chat chat2 = communication.getRelatedChats().get(0);
+                assert chat2.getMessageDeque().peekLast() != null;
+                if(Objects.equals(chat2.getMessageDeque().peekLast().getSentBy(), user.getUsername())){
+                    chat2.setHasRead(true);
+                }
+                getDisplayName(chat2);
+                for (Chat temChat : chatList.getItems()){
+                    if(chat2.getId() == temChat.getId()){
+                        Platform.runLater(() -> {
+                            boolean isCurrent = currentChat != null && currentChat.getId() == temChat.getId();
+                            chatList.getItems().remove(temChat);
+                            chatList.getItems().add(0,chat2);
+                            if(isCurrent){
+                                currentChat = chat2;
+                                updateTitle();
+                                chatList.getSelectionModel().select(currentChat);
+                                chatContentList.getItems().clear();
 
-                        }
+                                for (Message message : currentChat.getMessageDeque()) {
+                                    chatContentList.getItems().add(message);
+                                }
+                            }
+                        });
                     }
                 }
                 break;
         }
+    }
+
+    private void getDisplayName(Chat chat2) {
+        if(chat2.isPrivate()){
+            if(!Objects.equals(chat2.getUserList().get(0), user.getUsername())){
+                chat2.setDisplayName(chat2.getUserList().get(0));
+            }
+            else {
+                chat2.setDisplayName(chat2.getUserList().get(1));
+            }
+        }
+        else {
+            Collections.sort(chat2.getUserList());
+            StringBuilder displayName = new StringBuilder();
+            for (int i = 0;i < Math.min(3,chat2.getUserList().size());i++){
+                displayName.append(chat2.getUserList().get(i)).append(", ");
+            }
+            displayName.delete(displayName.length()-2,displayName.length());
+            if(chat2.getUserList().size() <= 3){
+                chat2.setDisplayName(displayName.toString());
+            }
+            else {
+                displayName.append("... (");
+                displayName.append(chat2.getUserList().size());
+                displayName.append(")");
+                chat2.setDisplayName(displayName.toString());
+            }
+        }
+        if(!chat2.isHasRead()){
+            String displayName = chat2.getDisplayName();
+            displayName += " (new message)";
+            chat2.setDisplayName(displayName);
+        }
+    }
+
+    private void updateTitle(){
+        if(currentChat != null){
+            Collections.sort(currentChat.getUserList());
+            StringBuilder displayName = new StringBuilder();
+            for (int i = 0;i < currentChat.getUserList().size();i++){
+                displayName.append(currentChat.getUserList().get(i)).append(", ");
+            }
+            displayName.delete(displayName.length()-2,displayName.length());
+            displayWholeName.setText(displayName.toString());
+        }
+        else {
+            displayWholeName.setText("");
+        }
+
+    }
+
+    private void handleServerClosed(){
+        Platform.runLater(() -> {
+            Alert alert = new Alert(Alert.AlertType.INFORMATION);
+            alert.setTitle("Server closed");
+            alert.setHeaderText(null);
+            alert.setContentText("The server is closed. You have to quit now.");
+
+            alert.showAndWait();
+            Platform.exit();
+        });
+    }
+
+    public void onClose(WindowEvent event) {
+        System.out.println("VBox's stage is closing");
+        Communication communication = new Communication(2,user.getUsername());
+        try{
+            output.writeObject(communication);
+        }catch (IOException e){
+            System.out.println("don't send log out");
+        }
+    }
+
+    public void setStage(Stage stage) {
+        stage.setOnCloseRequest(this::onClose);
     }
 
     /**
@@ -334,7 +521,7 @@ public class Controller implements Initializable {
         }
     }
 
-    private class ChatListCell extends ListCell<Chat> {
+    private static class ChatListCell extends ListCell<Chat> {
         @Override
         protected void updateItem(Chat chat, boolean empty) {
             super.updateItem(chat, empty);
@@ -347,7 +534,7 @@ public class Controller implements Initializable {
         }
     }
 
-    private class ControllerThread extends Thread{
+    private static class ControllerThread extends Thread{
         private Socket socket;
 
         private Controller controller;
@@ -364,12 +551,14 @@ public class Controller implements Initializable {
         }
 
         public void run(){
-            while (true){
+            while (controller.isOnline){
                 try {
                     Communication communication = (Communication) input.readObject();
                     controller.handleCommunication(communication);
                 } catch (IOException | ClassNotFoundException e) {
-                    throw new RuntimeException(e);
+                    controller.isOnline = false;
+                    controller.handleServerClosed();
+                    System.out.println("Thread end.");
                 }
             }
         }

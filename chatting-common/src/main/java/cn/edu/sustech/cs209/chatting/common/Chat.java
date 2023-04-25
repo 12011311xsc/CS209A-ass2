@@ -16,6 +16,16 @@ public class Chat implements Serializable {
 
     private String displayName;
 
+    public boolean isHasRead() {
+        return hasRead;
+    }
+
+    public void setHasRead(boolean hasRead) {
+        this.hasRead = hasRead;
+    }
+
+    private boolean hasRead;
+
     public boolean isPrivate() {
         return isPrivate;
     }

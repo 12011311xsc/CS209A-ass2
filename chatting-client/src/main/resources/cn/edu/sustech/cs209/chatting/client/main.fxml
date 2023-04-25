@@ -15,6 +15,7 @@
 <?import javafx.scene.paint.Color?>
 <?import javafx.scene.text.Font?>
 
+<?import javafx.scene.control.TextField?>
 <VBox prefHeight="600.0" prefWidth="900.0" xmlns="http://javafx.com/javafx/8" xmlns:fx="http://javafx.com/fxml/1"
       fx:controller="cn.edu.sustech.cs209.chatting.client.Controller">
     <MenuBar VBox.vgrow="NEVER">
@@ -25,14 +26,17 @@
     </MenuBar>
     <SplitPane dividerPositions="0.25" focusTraversable="true" VBox.vgrow="ALWAYS">
         <ListView fx:id="chatList" prefHeight="200.0" prefWidth="200.0"/>
-        <SplitPane dividerPositions="0.85" orientation="VERTICAL" prefHeight="200.0" prefWidth="160.0">
-            <ListView fx:id="chatContentList" prefHeight="200.0" prefWidth="200.0"/>
-            <HBox prefHeight="100.0" prefWidth="200.0">
-                <TextArea fx:id="inputArea" prefHeight="138.0" prefWidth="624.0" HBox.hgrow="ALWAYS"/>
-                <Button maxHeight="1.7976931348623157E308" mnemonicParsing="false" onAction="#doSendMessage"
-                        text="Send" HBox.hgrow="ALWAYS"/>
-            </HBox>
-        </SplitPane>
+        <VBox>
+            <Label fx:id="displayWholeName" VBox.vgrow="ALWAYS" prefHeight="40.0"/>
+            <SplitPane dividerPositions="0.85" orientation="VERTICAL" prefHeight="200.0" prefWidth="160.0" VBox.vgrow="SOMETIMES">
+                <ListView fx:id="chatContentList" prefHeight="200.0" prefWidth="200.0"/>
+                <HBox prefHeight="100.0" prefWidth="200.0">
+                    <TextArea fx:id="inputArea" prefHeight="138.0" prefWidth="624.0" HBox.hgrow="ALWAYS"/>
+                    <Button maxHeight="1.7976931348623157E308" mnemonicParsing="false" onAction="#doSendMessage"
+                            text="Send" HBox.hgrow="ALWAYS"/>
+                </HBox>
+            </SplitPane>
+        </VBox>
     </SplitPane>
     <HBox id="HBox" alignment="CENTER_LEFT" spacing="5.0" VBox.vgrow="NEVER">
         <padding>
@@ -48,6 +52,6 @@
             </textFill>
         </Label>
         <Pane HBox.hgrow="ALWAYS"/>
-        <Label fx:id="currentOnlineCnt" font="$x3" text="Online: 1" textFill="$x4" HBox.hgrow="NEVER"/>
+        <Label fx:id="currentOnlineCnt" font="$x3" text="OnlineUser: UserName" textFill="$x4" HBox.hgrow="NEVER"/>
     </HBox>
 </VBox>

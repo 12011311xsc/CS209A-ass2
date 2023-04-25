@@ -4,6 +4,7 @@ import cn.edu.sustech.cs209.chatting.common.Chat;
 import cn.edu.sustech.cs209.chatting.common.Communication;
 import cn.edu.sustech.cs209.chatting.common.User;
 
+import java.io.EOFException;
 import java.io.IOException;
 import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
@@ -51,9 +52,13 @@ public class Main {
                             response.getRelatedUsers().add(userList.get(sendFrom));
                             System.out.println(sendFrom+" login success");
                         }
+                        else {
+                            break;
+                        }
                     }
                     else {
                         User user = new User(sendFrom);
+                        user.setOnline(true);
                         userList.put(sendFrom,user);
                         response.getRelatedUsers().add(userList.get(sendFrom));
                         System.out.println(sendFrom+" register and login success");
@@ -71,11 +76,26 @@ public class Main {
                     break;
                 case 2:
                     //TODO:log out
+                    response.setRid(2);
+                    userList.get(sendFrom).setOnline(false);
+                    response.getRelatedUsers().add(userList.get(sendFrom));
+
+                    clientOutputs.forEach((key, value) -> {
+                        if(!Objects.equals(key, sendFrom)){
+                            try {
+                                value.writeObject(response);
+                                System.out.println("send log out to "+key);
+                            } catch (IOException e) {
+                                e.printStackTrace();
+                            }
+                        }
+                    });
+                    clientOutputs.remove(sendFrom);
                     break;
                 case 3:
                     response.setRid(3);
                     userList.forEach((key, value) -> {
-                        if(!Objects.equals(key, sendFrom)){
+                        if(value.isOnline() && !Objects.equals(key, sendFrom)){
                             response.getRelatedUsers().add(value);
                         }
                     });
@@ -85,12 +105,14 @@ public class Main {
                             response.getRelatedChats().add(value);
                         }
                     });
+                    System.out.println("send initial information to "+sendFrom);
                     break;
                 case 4:
                     response.setRid(4);
                     int id = chatList.size();
                     Chat chat = communication.getRelatedChats().get(0);
                     chat.setId(id);
+                    chat.setHasRead(true);
                     chatList.put(id,chat);
                     response.getRelatedChats().add(chat);
                     clientOutputs.forEach((key, value) -> {
@@ -109,6 +131,7 @@ public class Main {
                     response.setSendFrom(sendFrom);
                     Chat chat2 = communication.getRelatedChats().get(0);
                     int id2 = chat2.getId();
+                    chat2.setHasRead(false);
                     chatList.put(id2,chat2);
                     response.getRelatedChats().add(chat2);
                     clientOutputs.forEach((key, value) -> {
@@ -159,11 +182,10 @@ public class Main {
                         Communication communication = (Communication) input.readObject();
 
                         Communication response = server.handleCommunication(communication);
-                        ObjectOutputStream targetOutput = server.clientOutputs.get(sendFrom);
-                        targetOutput.writeObject(response);
+                        output.writeObject(response);
                     }
                 } catch (ClassNotFoundException | IOException e) {
-                    e.printStackTrace();
+                    System.out.println("one user log out.");
                 } finally {
                     try {
                         socket.close();
