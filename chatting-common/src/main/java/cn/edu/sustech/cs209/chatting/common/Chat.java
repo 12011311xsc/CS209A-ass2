@@ -71,4 +71,13 @@ public class Chat implements Serializable {
         this.userList = userList;
         this.messageDeque = new ConcurrentLinkedDeque<>();
     }
+
+    public Long getLastMessageTimestamp() {
+        Message lastMessage = messageDeque.peekLast();
+        if (lastMessage != null) {
+            return lastMessage.getTimestamp();
+        } else {
+            return Long.MAX_VALUE;
+        }
+    }
 }

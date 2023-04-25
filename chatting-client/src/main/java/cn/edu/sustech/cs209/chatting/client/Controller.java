@@ -12,6 +12,7 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.*;
 import javafx.scene.layout.HBox;
+import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 import javafx.stage.WindowEvent;
 import javafx.util.Callback;
@@ -21,6 +22,10 @@ import java.io.ObjectInputStream;
 import java.io.ObjectOutputStream;
 import java.net.Socket;
 import java.net.URL;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicReference;
@@ -286,7 +291,7 @@ public class Controller implements Initializable {
             alert.showAndWait();
         }
         else{
-            Message message = new Message(System.currentTimeMillis()+28800000,user.getUsername(),"",inputArea.getText());
+            Message message = new Message(System.currentTimeMillis(),user.getUsername(),"",inputArea.getText());
             currentChat.getMessageDeque().addLast(message);
             currentChat.setHasRead(false);
 //            chatContentList.getItems().clear();
@@ -376,7 +381,11 @@ public class Controller implements Initializable {
                     onlineUsers.put(user1.getUsername(),user1);
                 }
                 Platform.runLater(() -> {
+                    communication.getRelatedChats().sort(Comparator.comparing(Chat::getLastMessageTimestamp));
                     for (Chat chat: communication.getRelatedChats()){
+                        if(chat.getMessageDeque().peekLast() == null || Objects.equals(chat.getMessageDeque().peekLast().getSentBy(), user.getUsername())){
+                            chat.setHasRead(true);
+                        }
                         getDisplayName(chat);
                         chatList.getItems().add(0,chat);
                     }
@@ -388,13 +397,18 @@ public class Controller implements Initializable {
                 break;
             case 4:
                 Chat chat = communication.getRelatedChats().get(0);
-                getDisplayName(chat);
-                chatList.getItems().add(0,chat);
+                Platform.runLater(() -> {
+                    if(chat.getMessageDeque().peekLast() == null || Objects.equals(chat.getMessageDeque().peekLast().getSentBy(), user.getUsername())){
+                        chat.setHasRead(true);
+                    }
+                    getDisplayName(chat);
+                    chatList.getItems().add(0,chat);
+                });
+
                 break;
             case 5:
                 Chat chat2 = communication.getRelatedChats().get(0);
-                assert chat2.getMessageDeque().peekLast() != null;
-                if(Objects.equals(chat2.getMessageDeque().peekLast().getSentBy(), user.getUsername())){
+                if(chat2.getMessageDeque().peekLast() == null || Objects.equals(chat2.getMessageDeque().peekLast().getSentBy(), user.getUsername())){
                     chat2.setHasRead(true);
                 }
                 getDisplayName(chat2);
@@ -526,19 +540,31 @@ public class Controller implements Initializable {
 
                     HBox wrapper = new HBox();
                     Label nameLabel = new Label(msg.getSentBy());
+                    VBox content = new VBox();
+                    Instant instant = Instant.ofEpochMilli(msg.getTimestamp());
+                    LocalDateTime localDateTime = LocalDateTime.ofInstant(instant, ZoneId.systemDefault());
+                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    String formattedDateTime = localDateTime.format(formatter);
+                    Label timeLabel = new Label(formattedDateTime);
                     Label msgLabel = new Label(msg.getData());
 
                     nameLabel.setPrefSize(50, 20);
                     nameLabel.setWrapText(true);
                     nameLabel.setStyle("-fx-border-color: black; -fx-border-width: 1px;");
 
+                    timeLabel.setPrefSize(160, 20);
+                    timeLabel.setWrapText(true);
+                    timeLabel.setStyle("-fx-border-color: black; -fx-border-width: 1px;");
+
+                    content.getChildren().addAll(timeLabel,msgLabel);
+
                     if (user.getUsername().equals(msg.getSentBy())) {
                         wrapper.setAlignment(Pos.TOP_RIGHT);
-                        wrapper.getChildren().addAll(msgLabel, nameLabel);
+                        wrapper.getChildren().addAll(content, nameLabel);
                         msgLabel.setPadding(new Insets(0, 20, 0, 0));
                     } else {
                         wrapper.setAlignment(Pos.TOP_LEFT);
-                        wrapper.getChildren().addAll(nameLabel, msgLabel);
+                        wrapper.getChildren().addAll(nameLabel, content);
                         msgLabel.setPadding(new Insets(0, 0, 0, 20));
                     }
 
